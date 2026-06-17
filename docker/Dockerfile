@@ -48,12 +48,14 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Create system user
-RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs nextjs
+RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -m nextjs
 
 # Copy built code
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy entrypoint script
 COPY docker/scripts/entrypoint.sh ./entrypoint.sh
