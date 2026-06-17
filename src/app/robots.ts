@@ -1,0 +1,17 @@
+import { MetadataRoute } from "next"
+import { APP_URL } from "@/lib/constants"
+
+export default function robots(): MetadataRoute.Robots {
+  const baseUrl = APP_URL
+
+  return {
+    rules: [
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: ["/dashboard/", "/admin/", "/api/"],
+      },
+    ],
+    sitemap: `${baseUrl}/sitemap.xml`,
+  }
+}
