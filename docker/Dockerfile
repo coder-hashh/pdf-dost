@@ -53,6 +53,11 @@ RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs nextjs
 # Copy built code
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package.json ./package.json
+
+# Copy entrypoint script
+COPY docker/scripts/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh && chown nextjs:nodejs ./entrypoint.sh
 
 # Automatically leverage standalone output tracing
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
@@ -69,4 +74,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["./entrypoint.sh"]
