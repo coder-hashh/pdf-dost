@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "Initializing SQLite database..."
+echo "Initializing database schema..."
 until node node_modules/prisma/build/index.js db push --accept-data-loss; do
   echo "Database push failed, retrying in 5 seconds..."
   sleep 5
