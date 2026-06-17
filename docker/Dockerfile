@@ -1,13 +1,12 @@
 # ===== Stage 1: Build Dependencies =====
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+FROM node:20-slim AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci
 
 # ===== Stage 2: App Builder =====
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
