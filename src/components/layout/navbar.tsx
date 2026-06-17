@@ -147,16 +147,7 @@ export function Navbar() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button asChild variant="ghost" className="rounded-lg h-9">
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild className="gradient-primary text-white rounded-lg h-9 px-4 font-semibold shadow-sm hover:opacity-90 transition-all">
-                <Link href="/register">Register</Link>
-              </Button>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* Mobile menu trigger */}

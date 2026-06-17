@@ -102,16 +102,7 @@ export function MobileMenu() {
                 Logout
               </Button>
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <Button asChild variant="outline" className="w-full" onClick={() => setOpen(false)}>
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild className="w-full gradient-primary text-white" onClick={() => setOpen(false)}>
-                <Link href="/register">Register</Link>
-              </Button>
-            </div>
-          )}
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>
