@@ -21,10 +21,12 @@ async function processImage(imageBuffer: Buffer): Promise<ImageDimensions> {
   let processed: Buffer;
   if (format === "jpeg") {
     processed = await sharp(imageBuffer)
+      .rotate()
       .jpeg({ quality: 95 })
       .toBuffer();
   } else {
     processed = await sharp(imageBuffer)
+      .rotate()
       .png({ quality: 95 })
       .toBuffer();
   }
@@ -57,7 +59,17 @@ export async function imagesToPdf(imageBuffers: Buffer[]): Promise<Buffer> {
 
     let embeddedImage;
     if (processed.format === "jpeg") {
-      embeddedImage = await pdfDoc.embedJpg(processed.buffer);
+      try {
+        embeddedImage = await pdfDoc.embedJpg(processed.buffer);
+      } catch (embedError) {
+        console.warn("embedJpg failed, falling back to PNG conversion:", embedError);
+        // Fallback: convert to PNG
+        const fallbackPng = await sharp(imageBuffer)
+          .rotate()
+          .png({ quality: 95 })
+          .toBuffer();
+        embeddedImage = await pdfDoc.embedPng(fallbackPng);
+      }
     } else {
       embeddedImage = await pdfDoc.embedPng(processed.buffer);
     }
