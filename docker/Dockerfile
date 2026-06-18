@@ -1,6 +1,7 @@
 # ===== Stage 1: Build Dependencies =====
 FROM node:20-slim AS deps
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -45,6 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Create system user
