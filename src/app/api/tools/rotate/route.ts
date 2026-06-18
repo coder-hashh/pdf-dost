@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { rotatePdf } from "@/services/pdf/rotate";
 import { logActivity } from "@/services/activity-logger";
+import { getProcessedFilePath } from "@/services/file-manager";
+import { writeFile } from "fs/promises";
+import path from "path";
 
 function parsePages(rangeStr: string): number[] {
   const pages = new Set<number>();
@@ -84,10 +88,33 @@ export async function POST(request: Request) {
 
     const resultBuffer = await rotatePdf(buffer, rotationAngle, selectedPages);
 
-    // Log activity
     const session = await auth();
+    const userId = session?.user?.id || null;
+    let outputPath: string | null = null;
+
+    if (userId) {
+      outputPath = await getProcessedFilePath("rotated.pdf");
+      await writeFile(outputPath, resultBuffer);
+
+      await prisma.file.create({
+        data: {
+          userId,
+          originalName: "rotated.pdf",
+          generatedName: path.basename(outputPath),
+          fileSize: resultBuffer.length,
+          mimeType: "application/pdf",
+          toolUsed: "rotate-pdf",
+          status: "COMPLETED",
+          filePath: "",
+          resultPath: outputPath,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Log activity
     await logActivity(
-      session?.user?.id || null,
+      userId,
       "rotate_pdf",
       `Rotated PDF ${rotation}°: ${file.name}`,
       request

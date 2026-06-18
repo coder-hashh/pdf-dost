@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { pdfToImages } from "@/services/pdf/pdf-to-jpg";
 import {
   saveUploadedFile,
   getTempDir,
+  getProcessedFilePath,
   deleteFile,
   deleteDirectory,
 } from "@/services/file-manager";
 import { logActivity } from "@/services/activity-logger";
 import { ZipArchive } from "archiver";
-
+import path from "path";
 
 export async function POST(request: Request) {
   let inputPath: string | null = null;
@@ -52,8 +54,31 @@ export async function POST(request: Request) {
       const imageBuffer = await readFile(imagePaths[0]);
 
       const session = await auth();
+      const userId = session?.user?.id || null;
+      let outputPath: string | null = null;
+
+      if (userId) {
+        outputPath = await getProcessedFilePath("page_1.jpg");
+        await writeFile(outputPath, imageBuffer);
+
+        await prisma.file.create({
+          data: {
+            userId,
+            originalName: "page_1.jpg",
+            generatedName: path.basename(outputPath),
+            fileSize: imageBuffer.length,
+            mimeType: "image/jpeg",
+            toolUsed: "pdf-to-jpg",
+            status: "COMPLETED",
+            filePath: "",
+            resultPath: outputPath,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          },
+        });
+      }
+
       await logActivity(
-        session?.user?.id || null,
+        userId,
         "pdf_to_jpg",
         `Converted PDF to 1 image`,
         request
@@ -98,8 +123,31 @@ export async function POST(request: Request) {
       const zipBuffer = Buffer.concat(chunks);
 
       const session = await auth();
+      const userId = session?.user?.id || null;
+      let outputPath: string | null = null;
+
+      if (userId) {
+        outputPath = await getProcessedFilePath("pdf_images.zip");
+        await writeFile(outputPath, zipBuffer);
+
+        await prisma.file.create({
+          data: {
+            userId,
+            originalName: "pdf_images.zip",
+            generatedName: path.basename(outputPath),
+            fileSize: zipBuffer.length,
+            mimeType: "application/zip",
+            toolUsed: "pdf-to-jpg",
+            status: "COMPLETED",
+            filePath: "",
+            resultPath: outputPath,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          },
+        });
+      }
+
       await logActivity(
-        session?.user?.id || null,
+        userId,
         "pdf_to_jpg",
         `Converted PDF to ${imagePaths.length} images`,
         request
@@ -113,7 +161,8 @@ export async function POST(request: Request) {
           "Content-Length": zipBuffer.length.toString(),
         },
       });
-    } catch {
+    } catch (archiveError) {
+      console.error("ZIP archiving failed, falling back to first image:", archiveError);
       // Fallback: return just the first image if archiver not available
       const imageBuffer = await readFile(imagePaths[0]);
       return new NextResponse(new Uint8Array(imageBuffer), {

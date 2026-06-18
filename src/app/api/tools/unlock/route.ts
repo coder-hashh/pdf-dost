@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { unlockPdf } from "@/services/pdf/unlock";
 import {
   saveUploadedFile,
@@ -8,6 +9,7 @@ import {
   deleteFile,
 } from "@/services/file-manager";
 import { logActivity } from "@/services/activity-logger";
+import path from "path";
 
 export async function POST(request: Request) {
   let inputPath: string | null = null;
@@ -55,10 +57,30 @@ export async function POST(request: Request) {
 
     const resultBuffer = await readFile(outputPath);
 
-    // Log activity
+    // Save File record in DB for tracking if authenticated
     const session = await auth();
+    const userId = session?.user?.id || null;
+
+    if (userId) {
+      await prisma.file.create({
+        data: {
+          userId,
+          originalName: file.name,
+          generatedName: path.basename(outputPath),
+          fileSize: resultBuffer.length,
+          mimeType: "application/pdf",
+          toolUsed: "unlock-pdf",
+          status: "COMPLETED",
+          filePath: "",
+          resultPath: outputPath,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Log activity
     await logActivity(
-      session?.user?.id || null,
+      userId,
       "unlock_pdf",
       `Unlocked PDF: ${file.name}`,
       request
@@ -79,6 +101,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     if (inputPath) await deleteFile(inputPath).catch(() => {});
-    if (outputPath) await deleteFile(outputPath).catch(() => {});
+    
+    // If not authenticated, delete the output file to free space
+    const session = await auth();
+    if (!session?.user?.id && outputPath) {
+      await deleteFile(outputPath).catch(() => {});
+    }
   }
 }

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { mergePdfs } from "@/services/pdf/merge";
 import { logActivity } from "@/services/activity-logger";
+import { getProcessedFilePath } from "@/services/file-manager";
+import { writeFile } from "fs/promises";
+import path from "path";
 
 export async function POST(request: Request) {
   try {
@@ -38,10 +42,33 @@ export async function POST(request: Request) {
 
     const mergedBuffer = await mergePdfs(buffers);
 
-    // Log activity
     const session = await auth();
+    const userId = session?.user?.id || null;
+    let outputPath: string | null = null;
+
+    if (userId) {
+      outputPath = await getProcessedFilePath("merged.pdf");
+      await writeFile(outputPath, mergedBuffer);
+
+      await prisma.file.create({
+        data: {
+          userId,
+          originalName: "merged.pdf",
+          generatedName: path.basename(outputPath),
+          fileSize: mergedBuffer.length,
+          mimeType: "application/pdf",
+          toolUsed: "merge-pdf",
+          status: "COMPLETED",
+          filePath: "",
+          resultPath: outputPath,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Log activity
     await logActivity(
-      session?.user?.id || null,
+      userId,
       "merge_pdf",
       `Merged ${files.length} PDFs`,
       request

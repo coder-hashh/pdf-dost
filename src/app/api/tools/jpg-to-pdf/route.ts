@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { imagesToPdf } from "@/services/pdf/jpg-to-pdf";
 import { logActivity } from "@/services/activity-logger";
+import { getProcessedFilePath } from "@/services/file-manager";
+import { writeFile } from "fs/promises";
+import path from "path";
 
 export async function POST(request: Request) {
   try {
@@ -45,10 +49,33 @@ export async function POST(request: Request) {
 
     const pdfBuffer = await imagesToPdf(buffers);
 
-    // Log activity
     const session = await auth();
+    const userId = session?.user?.id || null;
+    let outputPath: string | null = null;
+
+    if (userId) {
+      outputPath = await getProcessedFilePath("images.pdf");
+      await writeFile(outputPath, pdfBuffer);
+
+      await prisma.file.create({
+        data: {
+          userId,
+          originalName: "images.pdf",
+          generatedName: path.basename(outputPath),
+          fileSize: pdfBuffer.length,
+          mimeType: "application/pdf",
+          toolUsed: "jpg-to-pdf",
+          status: "COMPLETED",
+          filePath: "",
+          resultPath: outputPath,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Log activity
     await logActivity(
-      session?.user?.id || null,
+      userId,
       "jpg_to_pdf",
       `Converted ${files.length} images to PDF`,
       request

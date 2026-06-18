@@ -16,14 +16,22 @@ export async function htmlToPdf(
   options: HtmlToPdfOptions
 ): Promise<Buffer> {
 
+  const args = [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--no-first-run",
+    "--no-zygote",
+  ];
+
+  if (process.platform !== "win32") {
+    args.push("--single-process");
+  }
+
   const browser = await puppeteer.launch({
     headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-    ],
+    args,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   });
 
@@ -31,7 +39,7 @@ export async function htmlToPdf(
     const page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: "networkidle0" as any,
+      waitUntil: "load",
       timeout: 30_000,
     });
 

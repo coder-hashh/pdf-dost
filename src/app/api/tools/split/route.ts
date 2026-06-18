@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { splitPdf } from "@/services/pdf/split";
 import { logActivity } from "@/services/activity-logger";
+import { getProcessedFilePath } from "@/services/file-manager";
+import { writeFile } from "fs/promises";
+import path from "path";
 
 export async function POST(request: Request) {
   try {
@@ -40,10 +44,33 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const resultBuffer = await splitPdf(buffer, pages);
 
-    // Log activity
     const session = await auth();
+    const userId = session?.user?.id || null;
+    let outputPath: string | null = null;
+
+    if (userId) {
+      outputPath = await getProcessedFilePath("split.pdf");
+      await writeFile(outputPath, resultBuffer);
+
+      await prisma.file.create({
+        data: {
+          userId,
+          originalName: "split.pdf",
+          generatedName: path.basename(outputPath),
+          fileSize: resultBuffer.length,
+          mimeType: "application/pdf",
+          toolUsed: "split-pdf",
+          status: "COMPLETED",
+          filePath: "",
+          resultPath: outputPath,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Log activity
     await logActivity(
-      session?.user?.id || null,
+      userId,
       "split_pdf",
       `Split PDF: pages ${pages}`,
       request
