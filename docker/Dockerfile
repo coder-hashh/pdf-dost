@@ -1,5 +1,6 @@
 # ===== Stage 1: Build Dependencies =====
 FROM node:20-slim AS deps
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 WORKDIR /app
 
 COPY package.json package-lock.json ./
