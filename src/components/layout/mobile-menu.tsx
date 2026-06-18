@@ -96,7 +96,7 @@ export function MobileMenu() {
                   className="w-full justify-start gap-2"
                   onClick={() => {
                     setOpen(false)
-                    signOut()
+                    signOut({ redirectTo: "/" })
                   }}
                 >
                   <LogOut className="h-4 w-4" />

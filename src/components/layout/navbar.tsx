@@ -141,7 +141,7 @@ export function Navbar() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                    onClick={() => signOut()}
+                    onClick={() => signOut({ redirectTo: "/" })}
                   >
                     <LogOut className="h-4 w-4" />
                     <span>Logout</span>
