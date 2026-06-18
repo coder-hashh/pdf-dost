@@ -65,44 +65,55 @@ export function MobileMenu() {
             <ThemeToggle />
           </div>
 
-          {!isLoading && session ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3 px-1 py-1.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <User className="h-4 w-4" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <p className="text-sm font-semibold truncate">{session.user?.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{session.user?.email}</p>
-                </div>
-              </div>
-              <Button asChild className="w-full justify-start gap-2" variant="outline" onClick={() => setOpen(false)}>
-                <Link href="/dashboard">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Link>
-              </Button>
-              {session.user?.role === "ADMIN" && (
-                <Button asChild className="w-full justify-start gap-2" variant="outline" onClick={() => setOpen(false)}>
-                  <Link href="/admin">
+          {!isLoading && (
+            session ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3 px-1 py-1.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <User className="h-4 w-4" />
-                    Admin Panel
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <p className="text-sm font-semibold truncate">{session.user?.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{session.user?.email}</p>
+                  </div>
+                </div>
+                <Button asChild className="w-full justify-start gap-2" variant="outline" onClick={() => setOpen(false)}>
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
                   </Link>
                 </Button>
-              )}
-              <Button
-                variant="destructive"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  setOpen(false)
-                  signOut()
-                }}
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          ) : null}
+                {session.user?.role === "ADMIN" && (
+                  <Button asChild className="w-full justify-start gap-2" variant="outline" onClick={() => setOpen(false)}>
+                    <Link href="/admin">
+                      <User className="h-4 w-4" />
+                      Admin Panel
+                    </Link>
+                  </Button>
+                )}
+                <Button
+                  variant="destructive"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    setOpen(false)
+                    signOut()
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Button asChild variant="outline" className="w-full justify-center rounded-xl font-semibold" onClick={() => setOpen(false)}>
+                  <Link href="/login">Sign In</Link>
+                </Button>
+                <Button asChild className="w-full justify-center rounded-xl font-semibold bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 shadow-md" onClick={() => setOpen(false)}>
+                  <Link href="/register">Sign Up</Link>
+                </Button>
+              </div>
+            )
+          )}
         </div>
       </SheetContent>
     </Sheet>
