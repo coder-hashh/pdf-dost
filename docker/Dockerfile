@@ -1,5 +1,5 @@
 # ===== Stage 1: Build Dependencies =====
-FROM node:20-slim AS deps
+FROM node:20 AS deps
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 WORKDIR /app
@@ -8,7 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # ===== Stage 2: App Builder =====
-FROM node:20-slim AS builder
+FROM node:20 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -29,6 +29,7 @@ ENV NEXT_TELEMETRY_DISABLED 1
 
 # Install system dependencies (LibreOffice, Ghostscript, qpdf, Chromium for Puppeteer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
     ghostscript \
     qpdf \
     libreoffice-writer \
@@ -52,21 +53,23 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # Create system user
 RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -m nextjs
 
-# Copy built code
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-
-# Copy entrypoint script
-COPY docker/scripts/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh && chown nextjs:nodejs ./entrypoint.sh
-
 # Automatically leverage standalone output tracing
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy built code and dependencies needed for seed/migration
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/bcryptjs ./node_modules/bcryptjs
+
+# Copy entrypoint script
+COPY --chown=nextjs:nodejs docker/scripts/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 # Setup storage mounts
 RUN mkdir -p storage/uploads storage/processed storage/temp && \
