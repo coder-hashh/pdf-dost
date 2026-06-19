@@ -28,20 +28,46 @@ export function FileUploadZone({
     (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
       setError(null);
 
-      if (rejectedFiles.length > 0) {
-        const firstError = rejectedFiles[0].errors[0];
+      const resolvedAcceptedFiles = [...acceptedFiles];
+      const actualRejectedFiles: FileRejection[] = [];
+
+      for (const rejection of rejectedFiles) {
+        const file = rejection.file;
+        const extension = "." + file.name.split(".").pop()?.toLowerCase();
+
+        // Check if the file's extension or MIME type is in the acceptedTypes array
+        const isExtensionAccepted = acceptedTypes.some(
+          (type) => type.startsWith(".") && type.toLowerCase() === extension
+        );
+
+        const isMimeAccepted = acceptedTypes.some(
+          (type) => !type.startsWith(".") && file.type && type.toLowerCase() === file.type.toLowerCase()
+        );
+
+        if (isExtensionAccepted || isMimeAccepted) {
+          resolvedAcceptedFiles.push(file);
+        } else {
+          actualRejectedFiles.push(rejection);
+        }
+      }
+
+      if (actualRejectedFiles.length > 0) {
+        const firstError = actualRejectedFiles[0].errors[0];
         if (firstError) {
-          setError(firstError.message);
+          const message = firstError.code === "file-invalid-type"
+            ? `File type not supported. Please upload: ${acceptedTypes.filter(t => t.startsWith(".")).join(", ")}`
+            : firstError.message;
+          setError(message);
         }
         return;
       }
 
-      if (acceptedFiles.length > maxFiles) {
+      if (resolvedAcceptedFiles.length > maxFiles) {
         setError(`Maximum ${maxFiles} file${maxFiles > 1 ? "s" : ""} allowed`);
         return;
       }
 
-      const oversizedFiles = acceptedFiles.filter((f) => f.size > maxFileSize);
+      const oversizedFiles = resolvedAcceptedFiles.filter((f) => f.size > maxFileSize);
       if (oversizedFiles.length > 0) {
         setError(
           `File "${oversizedFiles[0].name}" exceeds the ${formatFileSize(maxFileSize)} limit`
@@ -49,9 +75,9 @@ export function FileUploadZone({
         return;
       }
 
-      onFilesAdded(acceptedFiles);
+      onFilesAdded(resolvedAcceptedFiles);
     },
-    [maxFiles, maxFileSize, onFilesAdded]
+    [maxFiles, maxFileSize, onFilesAdded, acceptedTypes]
   );
 
   const accept: Record<string, string[]> = {};

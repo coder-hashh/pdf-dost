@@ -44,12 +44,21 @@ export function DownloadButton({
   }, []);
 
   const handleDownload = () => {
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    if (isIOS || isSafari) {
+      // iOS Safari fails to trigger downloads programmatically on blob URLs
+      // Opening it in a new window/tab lets the browser natively render or download it.
+      window.open(downloadUrl, "_blank");
+    } else {
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const handleCopyLink = async () => {
