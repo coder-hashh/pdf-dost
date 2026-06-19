@@ -29,6 +29,7 @@ export async function libreofficeConvert(
     const expectedOutputPath = path.join(outputDir, `${inputBasename}.docx`);
     try {
       await convertPdfToDocxWithPython(inputPath, expectedOutputPath);
+      await fixDocxCorruption(expectedOutputPath);
       return expectedOutputPath;
     } catch (error) {
       console.warn("Python pdf2docx conversion failed. Falling back to LibreOffice PDF import.", error);
