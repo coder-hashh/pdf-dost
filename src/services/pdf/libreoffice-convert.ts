@@ -132,17 +132,31 @@ export async function libreofficeConvert(
 async function fixDocxCorruption(docxPath: string): Promise<void> {
   try {
     const zip = new AdmZip(docxPath);
-    const docXmlEntry = zip.getEntry("word/document.xml");
-    if (!docXmlEntry) return;
-
-    let xmlContent = docXmlEntry.getData().toString("utf-8");
+    const entries = zip.getEntries();
     let shapeCounter = 0;
-    xmlContent = xmlContent.replace(/id="shape_0"/g, () => {
-      shapeCounter++;
-      return `id="shape_${shapeCounter}"`;
-    });
 
-    zip.updateFile("word/document.xml", Buffer.from(xmlContent, "utf-8"));
+    for (const entry of entries) {
+      if (entry.entryName.startsWith("word/") && entry.entryName.endsWith(".xml")) {
+        let xmlContent = entry.getData().toString("utf-8");
+        const originalContent = xmlContent;
+
+        // Replace all instances of id="shape_X" to be globally unique
+        xmlContent = xmlContent.replace(/id="shape_\d+"/g, () => {
+          shapeCounter++;
+          return `id="shape_${shapeCounter}"`;
+        });
+
+        // Replace corresponding spid="shape_X" to keep IDs in sync
+        xmlContent = xmlContent.replace(/spid="shape_\d+"/g, () => {
+          return `spid="shape_${shapeCounter}"`;
+        });
+
+        if (xmlContent !== originalContent) {
+          zip.updateFile(entry.entryName, Buffer.from(xmlContent, "utf-8"));
+        }
+      }
+    }
+
     zip.writeZip(docxPath);
   } catch (error) {
     console.error("Failed to fix DOCX VML shape IDs:", error);
