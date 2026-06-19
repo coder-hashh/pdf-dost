@@ -23,6 +23,19 @@ export async function libreofficeConvert(
 ): Promise<string> {
   const isPdfInput = inputPath.toLowerCase().endsWith(".pdf");
 
+  // If input is PDF and format is docx, convert using python pdf2docx with a fallback to LibreOffice
+  if (isPdfInput && format === "docx") {
+    const inputBasename = path.basename(inputPath, path.extname(inputPath));
+    const expectedOutputPath = path.join(outputDir, `${inputBasename}.docx`);
+    try {
+      await convertPdfToDocxWithPython(inputPath, expectedOutputPath);
+      return expectedOutputPath;
+    } catch (error) {
+      console.warn("Python pdf2docx conversion failed. Falling back to LibreOffice PDF import.", error);
+    }
+  }
+
+
   // If input is PDF and format is xlsx, perform a two-step conversion via HTML
   if (isPdfInput && format === "xlsx") {
     const tempHtmlPath = await libreofficeConvert(inputPath, outputDir, "html");
@@ -198,3 +211,32 @@ async function fixDocxCorruption(docxPath: string): Promise<void> {
     }
   }
 }
+
+/**
+ * Execute the python pdf_to_docx script to convert PDF to DOCX using pdf2docx.
+ */
+async function convertPdfToDocxWithPython(inputPath: string, outputPath: string): Promise<void> {
+  const scriptPath = path.join(process.cwd(), "scripts", "pdf_to_docx.py");
+  const args = [scriptPath, inputPath, outputPath];
+  
+  let pythonError: Error | null = null;
+  
+  // Try 'python' first
+  try {
+    await execFileAsync("python", args, { timeout: 180_000 });
+    return;
+  } catch (error) {
+    pythonError = error as Error;
+  }
+  
+  // Try 'python3' as a fallback
+  try {
+    await execFileAsync("python3", args, { timeout: 180_000 });
+    return;
+  } catch (error) {
+    throw new Error(
+      `Python pdf2docx conversion failed. python error: ${pythonError?.message || "unknown"}. python3 error: ${(error as Error).message}`
+    );
+  }
+}
+
