@@ -43,7 +43,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxss1 \
     libxtst6 \
     xdg-utils \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install python pdf2docx library in the container
+RUN pip3 install --no-cache-dir --break-system-packages pdf2docx
+
 
 # Environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
