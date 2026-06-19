@@ -1,9 +1,11 @@
-import { existsSync } from "fs";
+import { existsSync, createWriteStream, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { readdir, unlink } from "fs/promises";
 import path from "path";
 import AdmZip from "adm-zip";
+import { ZipArchive } from "archiver";
+import { getTempDir, deleteDirectory } from "@/services/file-manager";
 
 const execFileAsync = promisify(execFile);
 
@@ -129,36 +131,70 @@ export async function libreofficeConvert(
 /**
  * Fixes VML shape ID duplicate corruption in LibreOffice generated docx files.
  */
+/**
+ * Fixes VML shape ID duplicate corruption in LibreOffice generated docx files.
+ * Uses archiver to rebuild the ZIP structure for full MS Word compatibility (especially Word 2007).
+ */
 async function fixDocxCorruption(docxPath: string): Promise<void> {
+  let tempDir: string | null = null;
   try {
+    tempDir = await getTempDir();
+
+    // Extract DOCX using adm-zip
     const zip = new AdmZip(docxPath);
-    const entries = zip.getEntries();
+    zip.extractAllTo(tempDir, true);
+
     let shapeCounter = 0;
 
-    for (const entry of entries) {
-      if (entry.entryName.startsWith("word/") && entry.entryName.endsWith(".xml")) {
-        let xmlContent = entry.getData().toString("utf-8");
-        const originalContent = xmlContent;
+    // Recursively process files in directory
+    function processDir(dir: string) {
+      const files = readdirSync(dir);
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const relativePath = path.relative(tempDir!, fullPath).replace(/\\/g, "/");
 
-        // Replace all instances of id="shape_X" to be globally unique
-        xmlContent = xmlContent.replace(/id="shape_\d+"/g, () => {
-          shapeCounter++;
-          return `id="shape_${shapeCounter}"`;
-        });
+        if (statSync(fullPath).isDirectory()) {
+          processDir(fullPath);
+        } else if (relativePath.startsWith("word/") && file.endsWith(".xml")) {
+          let xmlContent = readFileSync(fullPath, "utf-8");
+          const originalContent = xmlContent;
 
-        // Replace corresponding spid="shape_X" to keep IDs in sync
-        xmlContent = xmlContent.replace(/spid="shape_\d+"/g, () => {
-          return `spid="shape_${shapeCounter}"`;
-        });
+          // Replace all instances of id="shape_X" to be globally unique
+          xmlContent = xmlContent.replace(/id="shape_\d+"/g, () => {
+            shapeCounter++;
+            return `id="shape_${shapeCounter}"`;
+          });
 
-        if (xmlContent !== originalContent) {
-          zip.updateFile(entry.entryName, Buffer.from(xmlContent, "utf-8"));
+          // Replace corresponding spid="shape_X" to keep IDs in sync
+          xmlContent = xmlContent.replace(/spid="shape_\d+"/g, () => {
+            return `spid="shape_${shapeCounter}"`;
+          });
+
+          if (xmlContent !== originalContent) {
+            writeFileSync(fullPath, xmlContent, "utf-8");
+          }
         }
       }
     }
 
-    zip.writeZip(docxPath);
+    processDir(tempDir);
+
+    // Re-archive using archiver
+    const outputStream = createWriteStream(docxPath);
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+
+    await new Promise<void>((resolve, reject) => {
+      outputStream.on("close", () => resolve());
+      archive.on("error", (err) => reject(err));
+      archive.pipe(outputStream);
+      archive.directory(tempDir!, false);
+      archive.finalize();
+    });
   } catch (error) {
     console.error("Failed to fix DOCX VML shape IDs:", error);
+  } finally {
+    if (tempDir) {
+      await deleteDirectory(tempDir).catch(() => {});
+    }
   }
 }
